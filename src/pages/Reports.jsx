@@ -24,6 +24,7 @@ import Badge from '../components/ui/Badge'
 import StatCard from '../components/ui/StatCard'
 import { formatCurrency, formatNumber } from '../utils/formatters'
 import { getStockStatus } from '../utils/helpers'
+import { downloadCsv } from '../utils/csvExport'
 
 const COLORS = ['#6366f1', '#8b5cf6', '#a78bfa', '#c4b5fd', '#818cf8', '#4f46e5', '#7c3aed', '#6d28d9', '#5b21b6']
 
@@ -89,7 +90,16 @@ export default function Reports() {
   }, [completedOrders])
 
   const handleExport = () => {
-    addToast('Report export started — download will begin shortly', 'info')
+    const rows = [
+      { Metric: 'Total Sales', Value: reportStats.totalSales },
+      { Metric: 'Orders Completed', Value: reportStats.orderCount },
+      { Metric: 'Avg Order Value', Value: reportStats.avgOrder },
+      { Metric: 'Items Sold', Value: reportStats.totalItemsSold },
+      ...bestSelling.map((p) => ({ Metric: `Best Seller: ${p.name}`, Value: `${p.sold} sold / $${p.revenue}` })),
+      ...lowStock.map((p) => ({ Metric: `Low Stock: ${p.name}`, Value: p.stockQuantity })),
+    ]
+    downloadCsv('stockflow-reports.csv', rows)
+    addToast('Report exported to CSV')
   }
 
   return (

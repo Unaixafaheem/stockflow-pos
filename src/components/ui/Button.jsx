@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion'
 
 const variants = {
-  primary: 'bg-gradient-to-r from-primary-600 to-primary-700 text-white shadow-md shadow-primary-600/25 hover:from-primary-700 hover:to-primary-800 hover:shadow-lg hover:shadow-primary-600/30',
+  primary: 'bg-primary-600 text-white shadow-md shadow-primary-600/25 hover:bg-primary-700 hover:shadow-lg hover:shadow-primary-600/30',
   secondary: 'bg-white text-slate-700 border border-slate-200/80 shadow-sm hover:bg-slate-50 hover:border-slate-300 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-700/80 dark:hover:bg-slate-700',
   danger: 'bg-gradient-to-r from-rose-600 to-rose-700 text-white shadow-md shadow-rose-600/25 hover:from-rose-700 hover:to-rose-800',
   ghost: 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800',

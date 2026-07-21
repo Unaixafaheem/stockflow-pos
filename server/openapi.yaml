@@ -1,0 +1,176 @@
+openapi: 3.0.3
+info:
+  title: StockFlow POS API
+  description: |
+    REST API for StockFlow inventory & point-of-sale.
+    Authenticate with `POST /api/auth/login`, then send `Authorization: Bearer <accessToken>`.
+  version: 1.0.0
+  contact:
+    name: Unaiza Faheem
+servers:
+  - url: http://localhost:5001
+    description: Local development
+tags:
+  - name: Auth
+  - name: Products
+  - name: Orders
+  - name: Stores
+  - name: Reports
+  - name: Health
+paths:
+  /api/health:
+    get:
+      tags: [Health]
+      summary: Health check
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: ok }
+                  service: { type: string }
+                  time: { type: string, format: date-time }
+
+  /api/auth/login:
+    post:
+      tags: [Auth]
+      summary: Login with email/username and password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [identifier, password]
+              properties:
+                identifier: { type: string, example: admin@stockflow.com }
+                password: { type: string, example: admin123 }
+      responses:
+        '200':
+          description: JWT tokens + user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          description: Invalid credentials
+
+  /api/auth/me:
+    get:
+      tags: [Auth]
+      summary: Current user profile
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Authenticated user
+        '401':
+          description: Unauthorized
+
+  /api/products:
+    get:
+      tags: [Products]
+      summary: List products (optionally store-scoped)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: query
+          name: storeId
+          schema: { type: string }
+        - in: query
+          name: q
+          schema: { type: string }
+      responses:
+        '200':
+          description: Product catalog
+    post:
+      tags: [Products]
+      summary: Create product
+      security: [{ bearerAuth: [] }]
+      responses:
+        '201':
+          description: Created
+
+  /api/orders:
+    get:
+      tags: [Orders]
+      summary: List orders
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Sales history
+
+  /api/orders/checkout:
+    post:
+      tags: [Orders]
+      summary: Complete POS checkout
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CheckoutRequest'
+      responses:
+        '201':
+          description: Order created and stock decremented
+        '400':
+          description: Validation or stock error
+
+  /api/stores:
+    get:
+      tags: [Stores]
+      summary: List stores / branches
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Store list
+
+  /api/reports/activity:
+    get:
+      tags: [Reports]
+      summary: Today's payment mix and cashier performance
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Activity widgets payload
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    AuthResponse:
+      type: object
+      properties:
+        accessToken: { type: string }
+        refreshToken: { type: string }
+        user:
+          type: object
+          properties:
+            id: { type: string }
+            email: { type: string }
+            role: { type: string }
+            currentStoreId: { type: string }
+    CheckoutRequest:
+      type: object
+      required: [items, paymentMethod]
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            required: [productId, quantity]
+            properties:
+              productId: { type: string }
+              quantity: { type: integer, minimum: 1 }
+        customerId: { type: string }
+        customerName: { type: string }
+        discount: { type: number }
+        paymentMethod: { type: string, enum: [Cash, Card, Online] }
+        couponCode: { type: string }
+        loyaltyPointsToRedeem: { type: integer }
+        storeId: { type: string }

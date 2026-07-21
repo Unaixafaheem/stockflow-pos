@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { Plus, Pencil, Trash2 } from 'lucide-react'
+import { Plus, Pencil, Trash2, Download } from 'lucide-react'
 import { useApp } from '../context/AppContext'
 import { useToast } from '../context/ToastContext'
 import PageHeader from '../components/ui/PageHeader'
@@ -12,6 +12,7 @@ import Modal from '../components/ui/Modal'
 import ConfirmModal from '../components/ui/ConfirmModal'
 import { formatCurrency } from '../utils/formatters'
 import { PRODUCT_CATEGORIES, getStockStatus } from '../utils/helpers'
+import { downloadCsv, productsToCsvRows } from '../utils/csvExport'
 
 const emptyProduct = {
   name: '',
@@ -69,7 +70,7 @@ export default function Products() {
     setModalOpen(true)
   }
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
     const data = {
       ...form,
@@ -78,20 +79,29 @@ export default function Products() {
       stockQuantity: parseInt(form.stockQuantity, 10),
       lowStockThreshold: parseInt(form.lowStockThreshold, 10),
     }
-    if (editingId) {
-      updateProduct(editingId, data)
-      addToast('Product updated successfully')
-    } else {
-      addProduct(data)
-      addToast('Product added successfully')
+    try {
+      if (editingId) {
+        await updateProduct(editingId, data)
+        addToast('Product updated successfully')
+      } else {
+        await addProduct(data)
+        addToast('Product added successfully')
+      }
+      setModalOpen(false)
+    } catch (err) {
+      addToast(err.message || 'Failed to save product', 'error')
     }
-    setModalOpen(false)
   }
 
-  const handleDelete = () => {
-    deleteProduct(deleteId)
-    addToast('Product deleted', 'warning')
-    setDeleteId(null)
+  const handleDelete = async () => {
+    try {
+      await deleteProduct(deleteId)
+      addToast('Product deleted', 'warning')
+    } catch (err) {
+      addToast(err.message || 'Failed to delete product', 'error')
+    } finally {
+      setDeleteId(null)
+    }
   }
 
   const columns = [
@@ -129,6 +139,16 @@ export default function Products() {
   return (
     <div>
       <PageHeader title="Products" description="Manage your inventory and product catalog.">
+        <Button
+          variant="secondary"
+          icon={Download}
+          onClick={() => {
+            downloadCsv('stockflow-products.csv', productsToCsvRows(filtered))
+            addToast('Products exported to CSV')
+          }}
+        >
+          Export CSV
+        </Button>
         <Button icon={Plus} onClick={openAdd}>Add Product</Button>
       </PageHeader>
 

@@ -1,0 +1,317 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                String    @id @default(cuid())
+  firstName         String
+  lastName          String
+  username          String    @unique
+  email             String    @unique
+  phone             String?
+  passwordHash      String
+  role              String    @default("Cashier")
+  storeName         String?
+  country           String?
+  emailVerified     Boolean   @default(false)
+  status            String    @default("Active")
+  themePreference   String    @default("system")
+  notificationsJson String    @default("{}")
+  connectedJson     String    @default("{}")
+  currentStoreId    String?
+  currentStore      Store?    @relation(fields: [currentStoreId], references: [id], onDelete: SetNull)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  lastLogin         DateTime?
+  refreshTokens     RefreshToken[]
+  shifts            Shift[]
+  auditLogs         AuditLog[]
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
+model Store {
+  id          String   @id @default(cuid())
+  name        String
+  code        String   @unique
+  address     String?
+  phone       String?
+  status      String   @default("Active")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  inventory   StoreInventory[]
+  orders      Order[]
+  purchaseOrders PurchaseOrder[]
+  shifts      Shift[]
+  users       User[]
+  stockAlerts StockAlert[]
+}
+
+model Product {
+  id                String   @id @default(cuid())
+  name              String
+  category          String
+  sku               String   @unique
+  barcode           String   @unique
+  costPrice         Float
+  sellingPrice      Float
+  stockQuantity     Int      @default(0)
+  lowStockThreshold Int      @default(10)
+  supplier          String
+  supplierId        String?
+  supplierRef       Supplier? @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  orderItems        OrderItem[]
+  inventory         StoreInventory[]
+  poItems           PurchaseOrderItem[]
+  refundItems       RefundItem[]
+  stockAlerts       StockAlert[]
+}
+
+model StoreInventory {
+  id                String  @id @default(cuid())
+  storeId           String
+  store             Store   @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  productId         String
+  product           Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  stockQuantity     Int     @default(0)
+  lowStockThreshold Int     @default(10)
+  updatedAt         DateTime @updatedAt
+
+  @@unique([storeId, productId])
+}
+
+model Supplier {
+  id        String   @id @default(cuid())
+  name      String
+  email     String?
+  phone     String?
+  address   String?
+  status    String   @default("Active")
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  products  Product[]
+  purchaseOrders PurchaseOrder[]
+}
+
+model PurchaseOrder {
+  id          String   @id @default(cuid())
+  poNumber    String   @unique
+  supplierId  String
+  supplier    Supplier @relation(fields: [supplierId], references: [id])
+  storeId     String?
+  store       Store?   @relation(fields: [storeId], references: [id], onDelete: SetNull)
+  status      String   @default("Draft")
+  totalCost   Float    @default(0)
+  notes       String?
+  createdById String?
+  orderedAt   DateTime?
+  receivedAt  DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  items       PurchaseOrderItem[]
+}
+
+model PurchaseOrderItem {
+  id            String  @id @default(cuid())
+  purchaseOrderId String
+  purchaseOrder PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  productId     String?
+  product       Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+  name          String
+  quantity      Int
+  receivedQty   Int     @default(0)
+  unitCost      Float
+  total         Float
+}
+
+model Customer {
+  id               String    @id @default(cuid())
+  name             String
+  phone            String?
+  email            String?
+  totalPurchases   Float     @default(0)
+  lastPurchaseDate DateTime?
+  loyaltyPoints    Int       @default(0)
+  loyaltyTier      String    @default("Bronze")
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  orders           Order[]
+  loyaltyTxns      LoyaltyTransaction[]
+}
+
+model Employee {
+  id        String   @id @default(cuid())
+  name      String
+  role      String
+  email     String
+  phone     String?
+  status    String   @default("Active")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Order {
+  id                   String   @id @default(cuid())
+  orderNumber          String   @unique
+  date                 DateTime @default(now())
+  storeId              String?
+  store                Store?   @relation(fields: [storeId], references: [id], onDelete: SetNull)
+  customerId           String?
+  customer             Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  customerName         String
+  subtotal             Float
+  discount             Float    @default(0)
+  couponCode           String?
+  couponDiscount       Float    @default(0)
+  loyaltyPointsRedeemed Int     @default(0)
+  loyaltyDiscount      Float    @default(0)
+  tax                  Float
+  total                Float
+  paymentMethod        String
+  status               String   @default("Completed")
+  shiftId              String?
+  shift                Shift?   @relation(fields: [shiftId], references: [id], onDelete: SetNull)
+  createdById          String?
+  createdAt            DateTime @default(now())
+  items                OrderItem[]
+  refunds              Refund[]
+}
+
+model OrderItem {
+  id        String  @id @default(cuid())
+  orderId   String
+  order     Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId String?
+  product   Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+  name      String
+  quantity  Int
+  price     Float
+  total     Float
+  refundItems RefundItem[]
+}
+
+model Refund {
+  id          String   @id @default(cuid())
+  refundNumber String  @unique
+  orderId     String
+  order       Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  amount      Float
+  reason      String
+  restock     Boolean  @default(true)
+  status      String   @default("Completed")
+  createdById String?
+  createdAt   DateTime @default(now())
+  items       RefundItem[]
+}
+
+model RefundItem {
+  id          String  @id @default(cuid())
+  refundId    String
+  refund      Refund  @relation(fields: [refundId], references: [id], onDelete: Cascade)
+  orderItemId String?
+  orderItem   OrderItem? @relation(fields: [orderItemId], references: [id], onDelete: SetNull)
+  productId   String?
+  product     Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+  name        String
+  quantity    Int
+  amount      Float
+}
+
+model Coupon {
+  id          String    @id @default(cuid())
+  code        String    @unique
+  name        String
+  type        String
+  value       Float
+  category    String?
+  minPurchase Float     @default(0)
+  maxUses     Int?
+  usedCount   Int       @default(0)
+  bogoBuyQty  Int       @default(1)
+  bogoGetQty  Int       @default(1)
+  active      Boolean   @default(true)
+  startsAt    DateTime?
+  endsAt      DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model Shift {
+  id           String    @id @default(cuid())
+  storeId      String?
+  store        Store?    @relation(fields: [storeId], references: [id], onDelete: SetNull)
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  openedAt     DateTime  @default(now())
+  closedAt     DateTime?
+  openingCash  Float     @default(0)
+  closingCash  Float?
+  expectedCash Float?
+  cashSales    Float     @default(0)
+  cardSales    Float     @default(0)
+  onlineSales  Float     @default(0)
+  refundTotal  Float     @default(0)
+  orderCount   Int       @default(0)
+  status       String    @default("Open")
+  notes        String?
+  orders       Order[]
+}
+
+model LoyaltyTransaction {
+  id         String   @id @default(cuid())
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  points     Int
+  type       String
+  orderId    String?
+  note       String?
+  createdAt  DateTime @default(now())
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  userName  String?
+  action    String
+  entity    String
+  entityId  String?
+  details   String   @default("{}")
+  createdAt DateTime @default(now())
+}
+
+model StockAlert {
+  id        String   @id @default(cuid())
+  productId String?
+  product   Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+  storeId   String?
+  store     Store?   @relation(fields: [storeId], references: [id], onDelete: SetNull)
+  channel   String
+  message   String
+  status    String   @default("Sent")
+  createdAt DateTime @default(now())
+}
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  email     String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}

@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { Plus, Pencil, Trash2 } from 'lucide-react'
+import { Plus, Pencil, Trash2, Download } from 'lucide-react'
 import { useApp } from '../context/AppContext'
 import { useToast } from '../context/ToastContext'
 import PageHeader from '../components/ui/PageHeader'
@@ -11,6 +11,7 @@ import SearchInput from '../components/ui/SearchInput'
 import Modal from '../components/ui/Modal'
 import ConfirmModal from '../components/ui/ConfirmModal'
 import { EMPLOYEE_ROLES, EMPLOYEE_STATUSES } from '../utils/helpers'
+import { downloadCsv, employeesToCsvRows } from '../utils/csvExport'
 
 const emptyEmployee = { name: '', role: 'Cashier', email: '', phone: '', status: 'Active' }
 
@@ -38,16 +39,20 @@ export default function Employees() {
   const openAdd = () => { setEditingId(null); setForm(emptyEmployee); setModalOpen(true) }
   const openEdit = (e) => { setEditingId(e.id); setForm({ name: e.name, role: e.role, email: e.email, phone: e.phone, status: e.status }); setModalOpen(true) }
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
-    if (editingId) {
-      updateEmployee(editingId, form)
-      addToast('Employee updated successfully')
-    } else {
-      addEmployee(form)
-      addToast('Employee added successfully')
+    try {
+      if (editingId) {
+        await updateEmployee(editingId, form)
+        addToast('Employee updated successfully')
+      } else {
+        await addEmployee(form)
+        addToast('Employee added successfully')
+      }
+      setModalOpen(false)
+    } catch (err) {
+      addToast(err.message || 'Failed to save employee', 'error')
     }
-    setModalOpen(false)
   }
 
   const columns = [
@@ -78,6 +83,16 @@ export default function Employees() {
   return (
     <div>
       <PageHeader title="Employees" description="Manage staff accounts, roles, and access levels.">
+        <Button
+          variant="secondary"
+          icon={Download}
+          onClick={() => {
+            downloadCsv('stockflow-employees.csv', employeesToCsvRows(filtered))
+            addToast('Employees exported to CSV')
+          }}
+        >
+          Export CSV
+        </Button>
         <Button icon={Plus} onClick={openAdd}>Add Employee</Button>
       </PageHeader>
 
@@ -126,7 +141,16 @@ export default function Employees() {
       <ConfirmModal
         isOpen={confirmOpen}
         onClose={() => setConfirmOpen(false)}
-        onConfirm={() => { deleteEmployee(deleteId); addToast('Employee deleted', 'warning'); setDeleteId(null) }}
+        onConfirm={async () => {
+          try {
+            await deleteEmployee(deleteId)
+            addToast('Employee deleted', 'warning')
+          } catch (err) {
+            addToast(err.message || 'Delete failed', 'error')
+          } finally {
+            setDeleteId(null)
+          }
+        }}
         title="Delete Employee"
         message="Are you sure you want to remove this employee?"
         confirmText="Delete"

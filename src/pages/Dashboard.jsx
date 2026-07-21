@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import {
@@ -8,6 +8,10 @@ import {
   ShoppingBag,
   AlertTriangle,
   ArrowRight,
+  Banknote,
+  CreditCard,
+  Globe,
+  Trophy,
 } from 'lucide-react'
 import {
   AreaChart,
@@ -19,8 +23,12 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
 } from 'recharts'
 import { useApp } from '../context/AppContext'
+import { useAuth } from '../auth/AuthContext'
 import PageHeader from '../components/ui/PageHeader'
 import StatCard from '../components/ui/StatCard'
 import Card from '../components/ui/Card'
@@ -28,16 +36,51 @@ import Badge from '../components/ui/Badge'
 import Table from '../components/ui/Table'
 import { formatCurrency, formatDateTime, formatNumber } from '../utils/formatters'
 import { getStockStatus } from '../utils/helpers'
+import { reportsApi } from '../services/endpoints'
+
+const PAYMENT_COLORS = { Cash: '#10b981', Card: '#6366f1', Online: '#f59e0b' }
+const PAYMENT_ICONS = { Cash: Banknote, Card: CreditCard, Online: Globe }
 
 export default function Dashboard() {
   const { products, customers, orders } = useApp()
+  const { user } = useAuth()
+  const [activity, setActivity] = useState(null)
+
+  useEffect(() => {
+    reportsApi.activity().then(setActivity).catch(() => setActivity(null))
+  }, [orders])
 
   const stats = useMemo(() => {
-    const completedOrders = orders.filter((o) => o.status === 'Completed')
+    const completedOrders = orders.filter((o) => o.status === 'Completed' || o.status === 'Partially Refunded')
     const totalRevenue = completedOrders.reduce((sum, o) => sum + o.total, 0)
     const lowStockProducts = products.filter((p) => getStockStatus(p.stockQuantity, p.lowStockThreshold) !== 'ok')
     return { totalRevenue, lowStockProducts }
   }, [products, orders])
+
+  const todayLocal = useMemo(() => {
+    const today = new Date().toDateString()
+    const todays = orders.filter((o) => new Date(o.date).toDateString() === today && o.status !== 'Refunded' && o.status !== 'Queued Offline')
+    const byMethod = { Cash: 0, Card: 0, Online: 0 }
+    todays.forEach((o) => {
+      if (byMethod[o.paymentMethod] != null) byMethod[o.paymentMethod] += o.total
+    })
+    return {
+      count: todays.length,
+      total: todays.reduce((s, o) => s + o.total, 0),
+      byMethod,
+    }
+  }, [orders])
+
+  const paymentChartData = useMemo(() => {
+    if (activity?.paymentBreakdown?.length) {
+      return activity.paymentBreakdown.filter((p) => p.amount > 0)
+    }
+    return Object.entries(todayLocal.byMethod)
+      .filter(([, amount]) => amount > 0)
+      .map(([method, amount]) => ({ method, amount }))
+  }, [activity, todayLocal])
+
+  const cashiers = activity?.cashierPerformance || []
 
   const revenueChartData = useMemo(() => {
     const days = []
@@ -47,7 +90,7 @@ export default function Dashboard() {
       const dayStr = date.toLocaleDateString('en-US', { weekday: 'short' })
       const dayOrders = orders.filter((o) => {
         const orderDate = new Date(o.date)
-        return orderDate.toDateString() === date.toDateString() && o.status === 'Completed'
+        return orderDate.toDateString() === date.toDateString() && (o.status === 'Completed' || o.status === 'Partially Refunded')
       })
       days.push({
         name: dayStr,
@@ -60,7 +103,7 @@ export default function Dashboard() {
   const bestSellingData = useMemo(() => {
     const productSales = {}
     orders
-      .filter((o) => o.status === 'Completed')
+      .filter((o) => o.status === 'Completed' || o.status === 'Partially Refunded')
       .forEach((order) => {
         order.items.forEach((item) => {
           productSales[item.name] = (productSales[item.name] || 0) + item.quantity
@@ -85,7 +128,7 @@ export default function Dashboard() {
       key: 'status',
       label: 'Status',
       render: (row) => (
-        <Badge variant={row.status === 'Completed' ? 'success' : row.status === 'Refunded' ? 'danger' : 'warning'}>
+        <Badge variant={row.status === 'Completed' ? 'success' : row.status === 'Refunded' || row.status === 'Queued Offline' ? 'warning' : 'danger'}>
           {row.status}
         </Badge>
       ),
@@ -93,18 +136,101 @@ export default function Dashboard() {
     { key: 'date', label: 'Date', render: (row) => formatDateTime(row.date) },
   ]
 
+  const firstName = user?.firstName || 'there'
+
   return (
     <div>
       <PageHeader
         title="Dashboard"
-        description="Welcome back, Unaiza! Here's what's happening with your store today."
+        description={`Welcome back, ${firstName}! Here's what's happening with your store today.`}
       />
 
       <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard title="Total Revenue" value={formatCurrency(stats.totalRevenue)} icon={DollarSign} color="primary" trend={12.5} trendLabel="vs last week" />
         <StatCard title="Total Products" value={formatNumber(products.length)} icon={Package} color="emerald" trend={3.2} trendLabel="new items" />
-        <StatCard title="Total Customers" value={formatNumber(customers.filter((c) => c.id !== 'cust_7').length)} icon={Users} color="violet" trend={8.1} trendLabel="this month" />
+        <StatCard title="Total Customers" value={formatNumber(customers.filter((c) => c.name !== 'Walk-in Customer').length)} icon={Users} color="violet" trend={8.1} trendLabel="this month" />
         <StatCard title="Total Orders" value={formatNumber(orders.length)} icon={ShoppingBag} color="amber" trend={-2.4} trendLabel="vs last week" />
+      </div>
+
+      <div className="mb-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <Card className="lg:col-span-1">
+          <div className="mb-4">
+            <h3 className="text-base font-semibold text-slate-900 dark:text-white">Today’s payments</h3>
+            <p className="text-xs text-slate-500">
+              Cash vs card vs online · {formatCurrency(activity?.totalSales ?? todayLocal.total)}
+            </p>
+          </div>
+          <div className="mb-4 grid grid-cols-3 gap-2">
+            {['Cash', 'Card', 'Online'].map((method) => {
+              const Icon = PAYMENT_ICONS[method]
+              const amount = activity?.paymentBreakdown?.find((p) => p.method === method)?.amount
+                ?? todayLocal.byMethod[method]
+                ?? 0
+              return (
+                <div key={method} className="rounded-xl border border-slate-100 bg-slate-50/80 p-3 text-center dark:border-slate-800 dark:bg-slate-800/40">
+                  <Icon className="mx-auto mb-1 h-4 w-4" style={{ color: PAYMENT_COLORS[method] }} />
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">{method}</p>
+                  <p className="text-sm font-bold text-slate-900 dark:text-white">{formatCurrency(amount)}</p>
+                </div>
+              )
+            })}
+          </div>
+          {paymentChartData.length > 0 ? (
+            <ResponsiveContainer width="100%" height={160}>
+              <PieChart>
+                <Pie data={paymentChartData} dataKey="amount" nameKey="method" innerRadius={45} outerRadius={70} paddingAngle={3}>
+                  {paymentChartData.map((entry) => (
+                    <Cell key={entry.method} fill={PAYMENT_COLORS[entry.method] || '#94a3b8'} />
+                  ))}
+                </Pie>
+                <Tooltip formatter={(value) => formatCurrency(value)} />
+              </PieChart>
+            </ResponsiveContainer>
+          ) : (
+            <p className="py-10 text-center text-sm text-slate-500">No sales yet today</p>
+          )}
+        </Card>
+
+        <Card className="lg:col-span-2">
+          <div className="mb-4 flex items-center justify-between">
+            <div>
+              <h3 className="flex items-center gap-2 text-base font-semibold text-slate-900 dark:text-white">
+                <Trophy className="h-4 w-4 text-amber-500" />
+                Cashier performance
+              </h3>
+              <p className="text-xs text-slate-500">Orders and revenue by cashier today</p>
+            </div>
+          </div>
+          {cashiers.length > 0 ? (
+            <div className="space-y-3">
+              {cashiers.map((c, index) => {
+                const max = cashiers[0]?.revenue || 1
+                const pct = Math.round((c.revenue / max) * 100)
+                return (
+                  <div key={c.userId} className="rounded-xl border border-slate-100 p-3 dark:border-slate-800">
+                    <div className="mb-2 flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-primary-50 text-xs font-bold text-primary-700 dark:bg-primary-900/40 dark:text-primary-300">
+                          {index + 1}
+                        </span>
+                        <div>
+                          <p className="text-sm font-semibold text-slate-900 dark:text-white">{c.name}</p>
+                          <p className="text-xs text-slate-400">{c.role} · {c.orders} order{c.orders === 1 ? '' : 's'}</p>
+                        </div>
+                      </div>
+                      <p className="text-sm font-bold text-slate-900 dark:text-white">{formatCurrency(c.revenue)}</p>
+                    </div>
+                    <div className="h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+                      <div className="h-full rounded-full bg-gradient-to-r from-primary-500 to-violet-500" style={{ width: `${pct}%` }} />
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          ) : (
+            <p className="py-12 text-center text-sm text-slate-500">No cashier sales recorded today yet</p>
+          )}
+        </Card>
       </div>
 
       <div className="mb-6 grid grid-cols-1 gap-6 lg:grid-cols-2">

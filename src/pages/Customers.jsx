@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { Plus, Pencil, Trash2 } from 'lucide-react'
+import { Plus, Pencil, Trash2, Download } from 'lucide-react'
 import { useApp } from '../context/AppContext'
 import { useToast } from '../context/ToastContext'
 import PageHeader from '../components/ui/PageHeader'
@@ -10,6 +10,7 @@ import SearchInput from '../components/ui/SearchInput'
 import Modal from '../components/ui/Modal'
 import ConfirmModal from '../components/ui/ConfirmModal'
 import { formatCurrency, formatDate } from '../utils/formatters'
+import { downloadCsv, customersToCsvRows } from '../utils/csvExport'
 
 const emptyCustomer = { name: '', phone: '', email: '' }
 
@@ -34,16 +35,20 @@ export default function Customers() {
   const openAdd = () => { setEditingId(null); setForm(emptyCustomer); setModalOpen(true) }
   const openEdit = (c) => { setEditingId(c.id); setForm({ name: c.name, phone: c.phone, email: c.email }); setModalOpen(true) }
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
-    if (editingId) {
-      updateCustomer(editingId, form)
-      addToast('Customer updated successfully')
-    } else {
-      addCustomer(form)
-      addToast('Customer added successfully')
+    try {
+      if (editingId) {
+        await updateCustomer(editingId, form)
+        addToast('Customer updated successfully')
+      } else {
+        await addCustomer(form)
+        addToast('Customer added successfully')
+      }
+      setModalOpen(false)
+    } catch (err) {
+      addToast(err.message || 'Failed to save customer', 'error')
     }
-    setModalOpen(false)
   }
 
   const columns = [
@@ -57,9 +62,11 @@ export default function Customers() {
     )},
     { key: 'phone', label: 'Phone' },
     { key: 'email', label: 'Email' },
+    { key: 'loyaltyTier', label: 'Tier', render: (row) => row.name !== 'Walk-in Customer' ? <span className="text-xs font-semibold text-primary-600">{row.loyaltyTier || 'Bronze'}</span> : '—' },
+    { key: 'loyaltyPoints', label: 'Points', render: (row) => row.name !== 'Walk-in Customer' ? (row.loyaltyPoints || 0) : '—' },
     { key: 'totalPurchases', label: 'Total Purchases', render: (row) => formatCurrency(row.totalPurchases) },
     { key: 'lastPurchaseDate', label: 'Last Purchase', render: (row) => row.lastPurchaseDate ? formatDate(row.lastPurchaseDate) : '—' },
-    { key: 'actions', label: 'Actions', render: (row) => row.id !== 'cust_7' ? (
+    { key: 'actions', label: 'Actions', render: (row) => row.name !== 'Walk-in Customer' ? (
       <div className="flex items-center gap-1">
         <button onClick={() => openEdit(row)} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-primary-600 dark:hover:bg-slate-800">
           <Pencil className="h-4 w-4" />
@@ -74,6 +81,16 @@ export default function Customers() {
   return (
     <div>
       <PageHeader title="Customers" description="Manage your customer database and purchase history.">
+        <Button
+          variant="secondary"
+          icon={Download}
+          onClick={() => {
+            downloadCsv('stockflow-customers.csv', customersToCsvRows(filtered))
+            addToast('Customers exported to CSV')
+          }}
+        >
+          Export CSV
+        </Button>
         <Button icon={Plus} onClick={openAdd}>Add Customer</Button>
       </PageHeader>
 
@@ -108,7 +125,16 @@ export default function Customers() {
       <ConfirmModal
         isOpen={confirmOpen}
         onClose={() => setConfirmOpen(false)}
-        onConfirm={() => { deleteCustomer(deleteId); addToast('Customer deleted', 'warning'); setDeleteId(null) }}
+        onConfirm={async () => {
+          try {
+            await deleteCustomer(deleteId)
+            addToast('Customer deleted', 'warning')
+          } catch (err) {
+            addToast(err.message || 'Delete failed', 'error')
+          } finally {
+            setDeleteId(null)
+          }
+        }}
         title="Delete Customer"
         message="Are you sure you want to delete this customer?"
         confirmText="Delete"

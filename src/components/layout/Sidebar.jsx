@@ -8,22 +8,40 @@ import {
   Users,
   UserCog,
   BarChart3,
-  Boxes,
+  Store,
+  Truck,
+  TicketPercent,
+  Clock,
+  Award,
+  BellRing,
+  ScrollText,
   X,
   Sparkles,
 } from 'lucide-react'
+import BrandLogo from '../brand/BrandLogo'
+import { useAuth } from '../../auth/AuthContext'
 
 const navItems = [
-  { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
-  { to: '/products', icon: Package, label: 'Products' },
-  { to: '/pos', icon: ShoppingCart, label: 'POS / Checkout' },
-  { to: '/orders', icon: ClipboardList, label: 'Orders / Sales' },
-  { to: '/customers', icon: Users, label: 'Customers' },
-  { to: '/employees', icon: UserCog, label: 'Employees' },
-  { to: '/reports', icon: BarChart3, label: 'Reports' },
+  { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard', permission: 'dashboard' },
+  { to: '/products', icon: Package, label: 'Products', permission: 'products' },
+  { to: '/pos', icon: ShoppingCart, label: 'POS / Checkout', permission: 'pos' },
+  { to: '/orders', icon: ClipboardList, label: 'Orders / Sales', permission: 'orders' },
+  { to: '/customers', icon: Users, label: 'Customers', permission: 'customers' },
+  { to: '/employees', icon: UserCog, label: 'Employees', permission: 'employees' },
+  { to: '/reports', icon: BarChart3, label: 'Reports', permission: 'reports' },
+  { to: '/stores', icon: Store, label: 'Stores', permission: 'stores' },
+  { to: '/suppliers', icon: Truck, label: 'Suppliers', permission: 'suppliers' },
+  { to: '/coupons', icon: TicketPercent, label: 'Coupons', permission: 'coupons' },
+  { to: '/shifts', icon: Clock, label: 'Shifts', permission: 'shifts' },
+  { to: '/loyalty', icon: Award, label: 'Loyalty', permission: 'loyalty' },
+  { to: '/alerts', icon: BellRing, label: 'Alerts', permission: 'alerts' },
+  { to: '/audit', icon: ScrollText, label: 'Audit', permission: 'audit' },
 ]
 
 export default function Sidebar({ isOpen, onClose }) {
+  const { can } = useAuth()
+  const visibleItems = navItems.filter((item) => can(item.permission))
+
   return (
     <>
       {isOpen && (
@@ -41,15 +59,7 @@ export default function Sidebar({ isOpen, onClose }) {
         }`}
       >
         <div className="flex h-16 items-center justify-between border-b border-slate-100 px-5 dark:border-slate-800">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary-500 via-primary-600 to-violet-600 shadow-lg shadow-primary-500/30">
-              <Boxes className="h-5 w-5 text-white" />
-            </div>
-            <div>
-              <h1 className="text-base font-bold tracking-tight text-slate-900 dark:text-white">StockFlow</h1>
-              <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-400">POS System</p>
-            </div>
-          </div>
+          <BrandLogo to="/dashboard" size="md" />
           <button
             onClick={onClose}
             className="rounded-xl p-2 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 lg:hidden dark:hover:bg-slate-800"
@@ -61,11 +71,11 @@ export default function Sidebar({ isOpen, onClose }) {
 
         <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
           <p className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-wider text-slate-400">Main Menu</p>
-          {navItems.map((item) => (
+          {visibleItems.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
-              end={item.to === '/'}
+              end={item.to === '/dashboard'}
               onClick={onClose}
               className={({ isActive }) =>
                 `group relative flex items-center gap-3 rounded-xl px-3.5 py-3 text-sm font-medium transition-all duration-200 ${

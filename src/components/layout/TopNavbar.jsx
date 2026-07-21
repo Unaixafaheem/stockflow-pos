@@ -5,7 +5,7 @@ import { useNotifications } from '../../hooks/useNotifications'
 import NotificationDropdown from './NotificationDropdown'
 import UserProfileDropdown from './UserProfileDropdown'
 
-export default function TopNavbar({ onMenuClick }) {
+export default function TopNavbar({ onMenuClick, onSearchClick }) {
   const { theme, toggleTheme, products, orders } = useApp()
   const [notificationsOpen, setNotificationsOpen] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
@@ -27,17 +27,25 @@ export default function TopNavbar({ onMenuClick }) {
         >
           <Menu className="h-5 w-5" />
         </button>
-        <div className="hidden items-center gap-2.5 rounded-xl border border-slate-200/80 bg-slate-50/80 px-3.5 py-2.5 shadow-sm md:flex dark:border-slate-700/80 dark:bg-slate-800/50">
+        <button
+          type="button"
+          onClick={onSearchClick}
+          className="hidden items-center gap-2.5 rounded-xl border border-slate-200/80 bg-slate-50/80 px-3.5 py-2.5 shadow-sm transition-colors hover:border-primary-200 hover:bg-primary-50/40 md:flex dark:border-slate-700/80 dark:bg-slate-800/50 dark:hover:border-primary-800"
+        >
           <Search className="h-4 w-4 text-slate-400" />
-          <input
-            type="text"
-            placeholder="Quick search..."
-            className="w-44 bg-transparent text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none lg:w-60 dark:text-slate-200"
-          />
+          <span className="w-44 text-left text-sm text-slate-400 lg:w-60">Quick search...</span>
           <kbd className="hidden rounded-md border border-slate-200 bg-white px-1.5 py-0.5 text-[10px] font-medium text-slate-400 lg:inline dark:border-slate-600 dark:bg-slate-700">
             ⌘K
           </kbd>
-        </div>
+        </button>
+        <button
+          type="button"
+          onClick={onSearchClick}
+          className="rounded-xl p-2.5 text-slate-500 transition-colors hover:bg-slate-100 md:hidden dark:hover:bg-slate-800"
+          aria-label="Open search"
+        >
+          <Search className="h-5 w-5" />
+        </button>
       </div>
 
       <div className="flex items-center gap-1">

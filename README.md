@@ -83,21 +83,30 @@ Perfect for showcasing in a **full-stack developer internship portfolio** — ev
 ### Prerequisites
 - Node.js 18+ and npm
 
-### Installation
+### Run frontend + backend (full stack)
 
 ```bash
-# Clone the repository
-git clone https://github.com/yourusername/stockflow-pos.git
-cd stockflow-pos
-
-# Install dependencies
+# 1) Setup & start API (Terminal 1)
+cd server
 npm install
-
-# Start development server
+npm run db:setup
 npm run dev
+# API → http://localhost:5001
+
+# 2) Start frontend (Terminal 2)
+cd ..
+npm install
+npm run dev
+# App → http://localhost:5173
 ```
 
-Open [http://localhost:5173](http://localhost:5173) in your browser.
+### Demo login
+
+| Role | Email | Password |
+|------|-------|----------|
+| Admin | `admin@stockflow.com` | `admin123` |
+| Manager | `manager@stockflow.com` | `manager123` |
+| Cashier | `cashier@stockflow.com` | `cashier123` |
 
 ### Build for Production
 
