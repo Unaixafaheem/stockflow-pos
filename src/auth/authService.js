@@ -17,23 +17,17 @@ import {
 
 const delay = (ms = 500) => new Promise((resolve) => setTimeout(resolve, ms))
 
-function createDemoUser() {
+function baseUser(overrides) {
   return {
-    id: 'user_demo_admin',
-    firstName: 'Unaiza',
-    lastName: 'Faheem',
-    username: DEMO_CREDENTIALS.username,
-    email: DEMO_CREDENTIALS.email,
-    phone: '+1 (555) 010-0001',
-    password: DEMO_CREDENTIALS.password,
-    role: 'Admin',
-    storeName: 'StockFlow Main Store',
+    phone: '',
+    storeName: 'StockFlow Downtown',
     country: 'United States',
     emailVerified: true,
     status: 'Active',
     themePreference: 'system',
     createdAt: new Date().toISOString(),
     lastLogin: null,
+    currentStoreId: 'store_demo_main',
     connectedAccounts: { google: false, microsoft: false },
     notifications: {
       email: true,
@@ -41,26 +35,66 @@ function createDemoUser() {
       orders: true,
       marketing: false,
     },
+    ...overrides,
   }
+}
+
+function createDemoUsers() {
+  return [
+    baseUser({
+      id: 'user_demo_admin',
+      firstName: 'Unaiza',
+      lastName: 'Faheem',
+      username: DEMO_CREDENTIALS.username,
+      email: DEMO_CREDENTIALS.email,
+      phone: '+1 (555) 010-0001',
+      password: DEMO_CREDENTIALS.password,
+      role: 'Admin',
+    }),
+    baseUser({
+      id: 'user_demo_manager',
+      firstName: 'Marcus',
+      lastName: 'Johnson',
+      username: 'manager',
+      email: 'manager@stockflow.com',
+      phone: '+1 (555) 010-0002',
+      password: 'manager123',
+      role: 'Manager',
+    }),
+    baseUser({
+      id: 'user_demo_cashier',
+      firstName: 'Priya',
+      lastName: 'Sharma',
+      username: 'cashier',
+      email: 'cashier@stockflow.com',
+      phone: '+1 (555) 010-0003',
+      password: 'cashier123',
+      role: 'Cashier',
+    }),
+  ]
 }
 
 function ensureSeedUsers() {
   const users = loadUsers()
+  const demos = createDemoUsers()
   if (users.length === 0) {
-    const seeded = [createDemoUser()]
-    saveUsers(seeded)
-    return seeded
+    saveUsers(demos)
+    return demos
   }
-  // Ensure demo admin always exists for portfolio demos
-  const hasDemo = users.some(
-    (u) => u.email === DEMO_CREDENTIALS.email || u.username === DEMO_CREDENTIALS.username
-  )
-  if (!hasDemo) {
-    const seeded = [createDemoUser(), ...users]
-    saveUsers(seeded)
-    return seeded
+
+  let next = [...users]
+  let changed = false
+  for (const demo of demos) {
+    const exists = next.some(
+      (u) => u.email === demo.email || u.username === demo.username || u.id === demo.id,
+    )
+    if (!exists) {
+      next = [demo, ...next]
+      changed = true
+    }
   }
-  return users
+  if (changed) saveUsers(next)
+  return next
 }
 
 function sanitizeUser(user) {
@@ -282,6 +316,7 @@ export const authService = {
         storeName: updates.storeName?.trim() ?? u.storeName,
         country: updates.country ?? u.country,
         username: updates.username?.trim() ?? u.username,
+        currentStoreId: updates.currentStoreId ?? u.currentStoreId,
       }
     })
     saveUsers(updated)

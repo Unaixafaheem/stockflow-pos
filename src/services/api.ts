@@ -77,11 +77,23 @@ export async function apiRequest<T = unknown>(path: string, options: RequestOpti
   }
 
   const text = await res.text()
+  const looksLikeHtml =
+    !!text &&
+    (text.trim().toLowerCase().startsWith('<!doctype') ||
+      text.trim().toLowerCase().startsWith('<html'))
+
+  if (looksLikeHtml) {
+    const error = new Error('API unavailable') as ApiError
+    error.status = res.status || 503
+    error.code = 'API_UNAVAILABLE'
+    throw error
+  }
+
   let data: Record<string, unknown> | null = null
   try {
     data = text ? (JSON.parse(text) as Record<string, unknown>) : null
   } catch {
-    data = { message: text }
+    data = { message: text || 'Request failed' }
   }
 
   if (!res.ok) {

@@ -29,9 +29,20 @@ export default function SocialAuthButtons() {
   const { addToast } = useToast()
 
   const handleProvider = async (provider) => {
-    const result = await loginWithProvider(provider)
-    if (!result.configured) {
-      addToast(result.message, 'info')
+    try {
+      const result = await loginWithProvider(provider)
+      if (!result?.configured) {
+        addToast(
+          result?.message ||
+            `${provider} sign-in is not configured yet. Use a demo account below to explore StockFlow.`,
+          'info',
+        )
+      }
+    } catch {
+      addToast(
+        `${provider} sign-in is not configured yet. Use a demo account below to explore StockFlow.`,
+        'info',
+      )
     }
   }
 
