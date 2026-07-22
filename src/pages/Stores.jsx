@@ -28,9 +28,10 @@ export default function Stores() {
     setLoading(true)
     try {
       const data = await storesApi.list()
-      setStores(data)
+      setStores(Array.isArray(data) ? data : [])
     } catch (err) {
       addToast(err.message || 'Failed to load stores', 'error')
+      setStores([])
     } finally {
       setLoading(false)
     }

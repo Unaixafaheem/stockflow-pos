@@ -1,5 +1,6 @@
 export default function Table({ columns, data, onRowClick, emptyMessage = 'No data found' }) {
-  if (!data.length) {
+  const rows = Array.isArray(data) ? data : []
+  if (!rows.length) {
     return (
       <div className="rounded-xl border border-dashed border-slate-200 py-12 text-center text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">
         {emptyMessage}
@@ -24,7 +25,7 @@ export default function Table({ columns, data, onRowClick, emptyMessage = 'No da
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 bg-white dark:divide-slate-800/80 dark:bg-slate-900/50">
-            {data.map((row, idx) => (
+            {rows.map((row, idx) => (
               <tr
                 key={row.id ?? idx}
                 onClick={() => onRowClick?.(row)}

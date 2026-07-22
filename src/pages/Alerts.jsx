@@ -23,9 +23,11 @@ export default function Alerts() {
 
   const loadAlerts = useCallback(async () => {
     try {
-      setAlerts(await alertsApi.list())
+      const data = await alertsApi.list()
+      setAlerts(Array.isArray(data) ? data : [])
     } catch (err) {
       addToast(err.message || 'Failed to load alerts', 'error')
+      setAlerts([])
     }
   }, [addToast])
 
@@ -35,7 +37,9 @@ export default function Alerts() {
     setScanning(true)
     try {
       const result = await alertsApi.scan({ channel: 'email' })
-      addToast(`Scan complete: ${result.alertsCreated} alert(s) created from ${result.scanned} products`)
+      addToast(
+        `Scan complete: ${result.alertsCreated ?? 0} alert(s) created from ${result.scanned ?? 0} products`,
+      )
       await loadAlerts()
     } catch (err) {
       addToast(err.message || 'Scan failed', 'error')

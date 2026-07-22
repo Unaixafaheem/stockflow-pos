@@ -6,6 +6,7 @@ import TopNavbar from './TopNavbar'
 import CommandPalette from './CommandPalette'
 import OfflineBanner from '../offline/OfflineBanner'
 import OnboardingTour from '../onboarding/OnboardingTour'
+import ErrorBoundary from '../ui/ErrorBoundary'
 import { useApp } from '../../context/AppContext'
 import { useAuth } from '../../auth/AuthContext'
 
@@ -52,7 +53,9 @@ export default function Layout() {
         )}
         <main className="flex-1 overflow-y-auto p-4 sm:p-5 lg:p-8">
           <div className="mx-auto max-w-[1600px]">
-            <Outlet />
+            <ErrorBoundary>
+              <Outlet />
+            </ErrorBoundary>
           </div>
         </main>
       </div>

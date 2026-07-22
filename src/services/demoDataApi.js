@@ -15,6 +15,7 @@ const defaultStores = [
     address: '120 Market Street, Suite 200',
     phone: '+1 (555) 100-2000',
     status: 'Active',
+    createdAt: new Date().toISOString(),
   },
   {
     id: 'store_demo_east',
@@ -23,13 +24,17 @@ const defaultStores = [
     address: '88 Riverside Ave',
     phone: '+1 (555) 100-3000',
     status: 'Active',
+    createdAt: new Date().toISOString(),
   },
 ]
 
 function loadData() {
   try {
     const raw = localStorage.getItem(DATA_KEY)
-    if (raw) return JSON.parse(raw)
+    if (raw) {
+      const parsed = JSON.parse(raw)
+      return normalizeDemoData(parsed)
+    }
   } catch {
     // ignore
   }
@@ -71,6 +76,39 @@ function loadData() {
   }
   saveData(seeded)
   return seeded
+}
+
+function normalizeDemoData(data) {
+  const next = {
+    products: Array.isArray(data.products) ? data.products : [],
+    customers: Array.isArray(data.customers) ? data.customers : [],
+    employees: Array.isArray(data.employees) ? data.employees : [],
+    orders: Array.isArray(data.orders) ? data.orders : [],
+    stores: (Array.isArray(data.stores) && data.stores.length ? data.stores : defaultStores).map((s) => ({
+      ...s,
+      createdAt: s.createdAt || new Date().toISOString(),
+    })),
+    coupons: Array.isArray(data.coupons) ? data.coupons : [],
+    shifts: Array.isArray(data.shifts) ? data.shifts : [],
+    currentShiftId: data.currentShiftId || null,
+    refunds: Array.isArray(data.refunds) ? data.refunds : [],
+    loyalty: data.loyalty || { tiers: [], balances: {}, history: {} },
+    audit: Array.isArray(data.audit) ? data.audit : [],
+    alerts: Array.isArray(data.alerts)
+      ? data.alerts.map((a) => ({
+          ...a,
+          createdAt: a.createdAt || new Date().toISOString(),
+          message: a.message || `${a.productName || a.product?.name || 'Product'} is low on stock.`,
+          status: a.status || 'DemoQueued',
+          channel: a.channel || 'email',
+          product: a.product || (a.productName ? { name: a.productName } : null),
+          store: a.store || null,
+        }))
+      : [],
+    suppliers: Array.isArray(data.suppliers) ? data.suppliers : [],
+    purchaseOrders: Array.isArray(data.purchaseOrders) ? data.purchaseOrders : [],
+  }
+  return next
 }
 
 function saveData(data) {
@@ -314,7 +352,12 @@ export const demoStoresApi = {
   list: async () => loadData().stores,
   create: async (data) => {
     const store = loadData()
-    const created = { id: generateId('store'), status: 'Active', ...data }
+    const created = {
+      id: generateId('store'),
+      status: 'Active',
+      createdAt: new Date().toISOString(),
+      ...data,
+    }
     store.stores = [...store.stores, created]
     saveData(store)
     return created
@@ -512,18 +555,52 @@ export const demoAlertsApi = {
   list: async () => {
     const store = loadData()
     if (store.alerts.length) return store.alerts
-    return store.products
+    const generated = store.products
       .filter((p) => p.stockQuantity <= p.lowStockThreshold)
       .map((p) => ({
         id: generateId('alert'),
         productId: p.id,
-        productName: p.name,
+        product: { id: p.id, name: p.name },
+        store: store.stores[0] ? { id: store.stores[0].id, name: store.stores[0].name } : null,
         stockQuantity: p.stockQuantity,
         threshold: p.lowStockThreshold,
-        status: 'Open',
+        message: `${p.name} is low on stock (${p.stockQuantity} left; threshold ${p.lowStockThreshold}).`,
+        status: 'DemoQueued',
         channel: 'email',
+        createdAt: new Date().toISOString(),
       }))
+    store.alerts = generated
+    saveData(store)
+    return generated
   },
-  scan: async () => ({ scanned: true, created: 0 }),
-  resend: async () => ({ success: true }),
+  scan: async () => {
+    const store = loadData()
+    const low = store.products.filter((p) => p.stockQuantity <= p.lowStockThreshold)
+    const existingIds = new Set(store.alerts.map((a) => a.productId))
+    const created = low
+      .filter((p) => !existingIds.has(p.id))
+      .map((p) => ({
+        id: generateId('alert'),
+        productId: p.id,
+        product: { id: p.id, name: p.name },
+        store: store.stores[0] ? { id: store.stores[0].id, name: store.stores[0].name } : null,
+        stockQuantity: p.stockQuantity,
+        threshold: p.lowStockThreshold,
+        message: `${p.name} is low on stock (${p.stockQuantity} left; threshold ${p.lowStockThreshold}).`,
+        status: 'DemoQueued',
+        channel: 'email',
+        createdAt: new Date().toISOString(),
+      }))
+    store.alerts = [...created, ...store.alerts]
+    saveData(store)
+    return { scanned: low.length, alertsCreated: created.length, alerts: created }
+  },
+  resend: async (id) => {
+    const store = loadData()
+    store.alerts = store.alerts.map((a) =>
+      a.id === id ? { ...a, status: 'DemoQueued', createdAt: new Date().toISOString() } : a,
+    )
+    saveData(store)
+    return { success: true }
+  },
 }
